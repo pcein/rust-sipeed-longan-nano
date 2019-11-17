@@ -1,4 +1,4 @@
-#![feature(global_asm)]
+#![feature(global_asm, asm)]
 #![no_main]
 #![no_std]
 
@@ -31,10 +31,9 @@ fn init_ports() {
     }
 }
 
-// don't compile with optimization enabled!
-fn delay(mut n: u32) {
-    while n != 0 {
-        n -= 1;
+fn delay(rounds: u32) {
+    for _ in 0..rounds {
+        unsafe { asm!("nop" :::: "volatile") };
     }
 }
 
