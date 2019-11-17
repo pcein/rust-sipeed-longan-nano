@@ -54,7 +54,7 @@ fn blink_led() {
 fn main() -> !  {
     init_ports();
     blink_led();
-    loop { }
+    loop {}
 }
 
 extern "C" {
@@ -72,10 +72,12 @@ extern "C" {
 
 // Make sure there is an abort when linking
 #[cfg(target_arch = "riscv32")]
-global_asm!(r#"
+global_asm!(
+    r#"
 lui sp, %hi(__stacktop)
 call Reset
 .globl abort
 abort:
   jal zero, abort
-"#);
+"#
+);
