@@ -1,14 +1,14 @@
-#![feature(global_asm)]
+#![feature(global_asm, asm)]
 #![no_main]
 #![no_std]
 
 // LED's on PC13, PA1 and PA2
 // We will use PA1 (green only)
 
-const rcu_apb2en: u32 = (0x4002_1000 + 0x18);
+const RCU_APB2EN: u32 = (0x4002_1000 + 0x18);
 
-const gpioa_ctl0: u32 = (0x4001_0800 + 0x0);
-const gpioa_data: u32 = (0x4001_0800 + 0xc);
+const GPIOA_CTL0: u32 = (0x4001_0800 + 0x0);
+const GPIOA_DATA: u32 = (0x4001_0800 + 0xc);
 
 use panic_abort;
 
@@ -23,18 +23,17 @@ pub unsafe extern "C" fn Reset() -> ! {
 fn init_ports() {
     unsafe {
         // Enable clock to Port A and Port C 
-        let x = core::ptr::read_volatile(rcu_apb2en as *mut u32);
-        core::ptr::write_volatile(rcu_apb2en as *mut u32, x | (1 << 2));
+        let x = core::ptr::read_volatile(RCU_APB2EN as *mut u32);
+        core::ptr::write_volatile(RCU_APB2EN as *mut u32, x | (1 << 2));
         // Enable push-pull o/p Port A, pins 1 and 2.
-        let x = core::ptr::read_volatile(gpioa_ctl0 as *mut u32);
-        core::ptr::write_volatile(gpioa_ctl0 as *mut u32, x | (1 << 4));
+        let x = core::ptr::read_volatile(GPIOA_CTL0 as *mut u32);
+        core::ptr::write_volatile(GPIOA_CTL0 as *mut u32, x | (1 << 4));
     }
 }
 
-// don't compile with optimization enabled!
-fn delay(mut n: u32) {
-    while n != 0 {
-        n -= 1;
+fn delay(rounds: u32) {
+    for _ in 0..rounds {
+        unsafe { asm!("nop" :::: "volatile") };
     }
 }
 
@@ -44,7 +43,7 @@ fn blink_led() {
     loop {
         unsafe {
             // LED on when PA1 bit is 0
-            core::ptr::write_volatile(gpioa_data as *mut u32, bits);
+            core::ptr::write_volatile(GPIOA_DATA as *mut u32, bits);
         }
         delay(0x4ffff);
         bits = !bits;
@@ -54,7 +53,7 @@ fn blink_led() {
 fn main() -> !  {
     init_ports();
     blink_led();
-    loop { }
+    loop {}
 }
 
 extern "C" {
@@ -72,10 +71,12 @@ extern "C" {
 
 // Make sure there is an abort when linking
 #[cfg(target_arch = "riscv32")]
-global_asm!(r#"
+global_asm!(
+    r#"
 lui sp, %hi(__stacktop)
 call Reset
 .globl abort
 abort:
   jal zero, abort
-"#);
+"#
+);
